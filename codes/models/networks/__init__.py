@@ -33,7 +33,8 @@ def define_discriminator(opt):
             spatial_size=spatial_size,
             tempo_range=net_D_opt['tempo_range'],
             degradation=opt['dataset']['degradation']['type'],
-            scale=opt['scale'])
+            scale=opt['scale'],
+            pgd=net_D_opt['pgd]'])
 
     elif net_D_opt['name'].lower() == 'snet':  # spatial discriminator
         net_D = SpatialDiscriminator(

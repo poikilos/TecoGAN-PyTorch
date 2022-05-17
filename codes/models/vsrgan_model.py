@@ -95,7 +95,35 @@ class VSRGANModel(VSRModel):
         self.sched_D = define_lr_schedule(
             self.opt['train']['discriminator'].get('lr_schedule'), self.optim_D)
 
-    def train(self):
+    def train(self, cur_iter):
+        # === PGD === #
+        if cur_iter == 100000 or cur_iter == 230000:
+            if cur_iter == 100000:
+                self.opt['train']['discriminator']['pgd'] = 1
+
+            elif cur_iter == 230000:
+                self.opt['train']['discriminator']['pgd'] = 2
+
+            self.net_D = define_discriminator(self.opt)
+            self.net_D = self.model_to_device(self.net_D)
+            base_utils.log_info('Discriminator: {}\n{}'.format(
+                self.opt['model']['discriminator']['name'], self.net_D.__str__()))
+
+            # load discriminator
+            load_path_D = self.opt['model']['discriminator'].get('load_path', '')
+            if load_path_D:
+                self.load_network(self.net_D, load_path_D)
+                base_utils.log_info('Load discriminator from: {}'.format(load_path_D))
+
+            self.optim_D = optim.Adam(
+                self.net_D.parameters(),
+                lr=self.opt['train']['discriminator']['lr'],
+                weight_decay=self.opt['train']['discriminator'].get('weight_decay', 0),
+                betas=self.opt['train']['discriminator'].get('betas', (0.9, 0.999)))
+
+            self.sched_D = define_lr_schedule(
+                self.opt['train']['discriminator'].get('lr_schedule'), self.optim_D)
+
         # === prepare data === #
         lr_data, gt_data = self.lr_data, self.gt_data
 
@@ -243,7 +271,7 @@ class VSRGANModel(VSRModel):
         # ping-pong (pp) loss
         if self.pp_crit is not None:
             tempo_extent = self.opt['train']['tempo_extent']
-            hr_data_fw = hr_data[:, :tempo_extent - 1, ...]      # -------->|
+            hr_data_fw = hr_data[:, :tempo_extent - 1, ...]  # -------->|
             hr_data_bw = hr_data[:, tempo_extent:, ...].flip(1)  # <--------|
 
             pp_w = self.opt['train']['pingpong_crit'].get('weight', 1)

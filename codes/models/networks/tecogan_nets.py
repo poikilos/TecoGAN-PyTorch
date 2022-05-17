@@ -21,7 +21,7 @@ class FNet(nn.Module):
         super(FNet, self).__init__()
 
         self.encoder1 = nn.Sequential(
-            nn.Conv2d(2*in_nc, 32, 3, 1, 1, bias=True),
+            nn.Conv2d(2 * in_nc, 32, 3, 1, 1, bias=True),
             nn.LeakyReLU(0.2, inplace=True),
             nn.Conv2d(32, 32, 3, 1, 1, bias=True),
             nn.LeakyReLU(0.2, inplace=True),
@@ -109,7 +109,7 @@ class SRNet(nn.Module):
 
         # input conv.
         self.conv_in = nn.Sequential(
-            nn.Conv2d((scale**2 + 1) * in_nc, nf, 3, 1, 1, bias=True),
+            nn.Conv2d((scale ** 2 + 1) * in_nc, nf, 3, 1, 1, bias=True),
             nn.ReLU(inplace=True))
 
         # residual blocks
@@ -193,7 +193,7 @@ class FRNet(BaseSequenceGenerator):
         hr_data = []
         hr_prev = self.srnet(
             lr_data[:, 0, ...],
-            torch.zeros(n, (self.scale**2)*c, lr_h, lr_w, dtype=torch.float32,
+            torch.zeros(n, (self.scale ** 2) * c, lr_h, lr_w, dtype=torch.float32,
                         device=lr_data.device))
         hr_data.append(hr_prev)
 
@@ -236,8 +236,8 @@ class FRNet(BaseSequenceGenerator):
         lr_flow = self.fnet(lr_curr, lr_prev)
 
         # pad if size is not a multiple of 8
-        pad_h = lr_curr.size(2) - lr_curr.size(2)//8*8
-        pad_w = lr_curr.size(3) - lr_curr.size(3)//8*8
+        pad_h = lr_curr.size(2) - lr_curr.size(2) // 8 * 8
+        pad_w = lr_curr.size(3) - lr_curr.size(3) // 8 * 8
         lr_flow_pad = F.pad(lr_flow, (0, pad_w, 0, pad_h), 'reflect')
 
         # upsample lr flow
@@ -267,7 +267,7 @@ class FRNet(BaseSequenceGenerator):
         # forward
         hr_seq = []
         lr_prev = torch.zeros(1, c, h, w, dtype=torch.float32).to(device)
-        hr_prev = torch.zeros(1, c, s*h, s*w, dtype=torch.float32).to(device)
+        hr_prev = torch.zeros(1, c, s * h, s * w, dtype=torch.float32).to(device)
 
         with torch.no_grad():
             for i in range(tot_frm):
@@ -287,7 +287,7 @@ class FRNet(BaseSequenceGenerator):
         # generate dummy input data
         lr_curr = torch.rand(1, c, lr_h, lr_w, dtype=torch.float32).to(device)
         lr_prev = torch.rand(1, c, lr_h, lr_w, dtype=torch.float32).to(device)
-        hr_prev = torch.rand(1, c, s*lr_h, s*lr_w, dtype=torch.float32).to(device)
+        hr_prev = torch.rand(1, c, s * lr_h, s * lr_w, dtype=torch.float32).to(device)
 
         data_list = [lr_curr, lr_prev, hr_prev]
         return data_list
@@ -303,8 +303,8 @@ class FRNet(BaseSequenceGenerator):
         gflops_dict['FNet'], params_dict['FNet'] = parse_model_info(self.fnet)
 
         # profile module 2: sr module
-        pad_h = lr_curr.size(2) - lr_curr.size(2)//8*8
-        pad_w = lr_curr.size(3) - lr_curr.size(3)//8*8
+        pad_h = lr_curr.size(2) - lr_curr.size(2) // 8 * 8
+        pad_w = lr_curr.size(3) - lr_curr.size(3) // 8 * 8
         lr_flow_pad = F.pad(lr_flow, (0, pad_w, 0, pad_h), 'reflect')
         hr_flow = self.scale * self.upsample_func(lr_flow_pad)
         hr_prev_warp = backward_warp(hr_prev, hr_flow)
@@ -316,27 +316,27 @@ class FRNet(BaseSequenceGenerator):
 
 # ====================== discriminator modules ====================== #
 class DiscriminatorBlocks(nn.Module):
-    def __init__(self):
+    def __init__(self, fsize):
         super(DiscriminatorBlocks, self).__init__()
-
+        self.fsize = fsize
         self.block1 = nn.Sequential(  # /2
-            nn.Conv2d(64, 64, kernel_size=4, stride=2, padding=1, bias=False),
-            nn.BatchNorm2d(64, affine=True),
+            nn.Conv2d(self.fsize, self.fsize, kernel_size=4, stride=2, padding=1, bias=False),
+            nn.BatchNorm2d(self.fsize, affine=True),
             nn.LeakyReLU(0.2, inplace=True))
 
         self.block2 = nn.Sequential(  # /4
-            nn.Conv2d(64, 64, kernel_size=4, stride=2, padding=1, bias=False),
-            nn.BatchNorm2d(64, affine=True),
+            nn.Conv2d(self.fsize, self.fsize, kernel_size=4, stride=2, padding=1, bias=False),
+            nn.BatchNorm2d(self.fsize, affine=True),
             nn.LeakyReLU(0.2, inplace=True))
 
         self.block3 = nn.Sequential(  # /8
-            nn.Conv2d(64, 128, kernel_size=4, stride=2, padding=1, bias=False),
-            nn.BatchNorm2d(128, affine=True),
+            nn.Conv2d(self.fsize, self.fsize * 2, kernel_size=4, stride=2, padding=1, bias=False),
+            nn.BatchNorm2d(self.fsize * 2, affine=True),
             nn.LeakyReLU(0.2, inplace=True))
 
         self.block4 = nn.Sequential(  # /16
-            nn.Conv2d(128, 256, kernel_size=4, stride=2, padding=1, bias=False),
-            nn.BatchNorm2d(256, affine=True),
+            nn.Conv2d(self.fsize * 2, self.fsize * 4, kernel_size=4, stride=2, padding=1, bias=False),
+            nn.BatchNorm2d(self.fsize * 4, affine=True),
             nn.LeakyReLU(0.2, inplace=True))
 
     def forward(self, x):
@@ -349,11 +349,12 @@ class DiscriminatorBlocks(nn.Module):
         return out4, feature_list
 
 
+# Add PGD on this D.
 class SpatioTemporalDiscriminator(BaseSequenceDiscriminator):
     """ Spatio-Temporal discriminator proposed in TecoGAN
     """
 
-    def __init__(self, in_nc, spatial_size, tempo_range, degradation, scale):
+    def __init__(self, in_nc, spatial_size, tempo_range, degradation, scale, pgd):
         super(SpatioTemporalDiscriminator, self).__init__()
 
         # basic settings
@@ -362,17 +363,24 @@ class SpatioTemporalDiscriminator(BaseSequenceDiscriminator):
         self.tempo_range = tempo_range
         assert self.tempo_range == 3, 'currently only support 3 as tempo_range'
         self.scale = scale
+        self.pgd = pgd
+        if self.pgd == 0:
+            self.fsize = 16
+        elif self.pgd == 1:
+            self.fsize = 32
+        elif self.pgd == 2:
+            self.fsize = 64
 
         # input conv.
         self.conv_in = nn.Sequential(
-            nn.Conv2d(in_nc*tempo_range*mult, 64, 3, 1, 1, bias=True),
+            nn.Conv2d(in_nc * tempo_range * mult, self.fsize, 3, 1, 1, bias=True),
             nn.LeakyReLU(0.2, inplace=True))
 
         # discriminator block
-        self.discriminator_block = DiscriminatorBlocks()  # downsample 16x
+        self.discriminator_block = DiscriminatorBlocks(self.fsize)  # downsample 16x
 
         # classifier
-        self.dense = nn.Linear(256 * spatial_size // 16 * spatial_size // 16, 1)
+        self.dense = nn.Linear(self.fsize * 4 * spatial_size // 16 * spatial_size // 16, 1)
 
         # get upsampling function according to degradation type
         self.upsample_func = get_upsampling_func(self.scale, degradation)
@@ -488,14 +496,15 @@ class SpatialDiscriminator(BaseSequenceDiscriminator):
         self.use_cond = use_cond  # whether to use conditional input
         mult = 2 if self.use_cond else 1
         tempo_range = 1
+        f_size = 64
 
         # input conv
         self.conv_in = nn.Sequential(
-            nn.Conv2d(in_nc*tempo_range*mult, 64, 3, 1, 1, bias=True),
+            nn.Conv2d(in_nc * tempo_range * mult, f_size, 3, 1, 1, bias=True),
             nn.LeakyReLU(0.2, inplace=True))
 
         # discriminator block
-        self.discriminator_block = DiscriminatorBlocks()  # /16
+        self.discriminator_block = DiscriminatorBlocks(f_size)  # /16
 
         # classifier
         self.dense = nn.Linear(256 * spatial_size // 16 * spatial_size // 16, 1)

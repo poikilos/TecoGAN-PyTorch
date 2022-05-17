@@ -5,6 +5,7 @@ import time
 
 import torch
 
+from codes.models import VSRGANModel
 from data import create_dataloader
 from models import define_model
 from metrics import create_metric_calculator
@@ -49,7 +50,7 @@ def train(opt):
             model.prepare_training_data(data)
 
             # train a mini-batch
-            model.train()
+            model.train(curr_iter)
 
             # update running log
             model.update_running_log()

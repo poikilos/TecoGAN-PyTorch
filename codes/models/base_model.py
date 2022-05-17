@@ -121,7 +121,7 @@ class BaseModel():
         # thwc to tchw
         self.lr_data = self.lr_data.permute(0, 3, 1, 2)  # tchw|float32
 
-    def train(self):
+    def train(self, cur_iter):
         pass
 
     def infer(self):
